@@ -1,28 +1,41 @@
-"""Generate text from a saved checkpoint: python sample.py --ckpt out/run/ckpt.pt --prompt "ROMEO:" """
+"""Generate text from a saved checkpoint via CLI.
+
+Usage:
+  python sample.py --ckpt out/run/ckpt.pt --prompt "ROMEO:" --tokens 200 --temperature 0.8 --top_k 40
+"""
 import argparse
+import os
 
-import torch
+from service import ModelService
 
-from model import GPT, GPTConfig
 
-if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--ckpt", default="out/run/ckpt.pt")
-    p.add_argument("--prompt", default="\n")
-    p.add_argument("--tokens", type=int, default=400)
-    p.add_argument("--temperature", type=float, default=0.8)
-    p.add_argument("--top_k", type=int, default=40)
-    p.add_argument("--seed", type=int, default=0)
+def main():
+    p = argparse.ArgumentParser(description="nanoGPT text generation CLI")
+    p.add_argument("--ckpt", default="out/run/ckpt.pt", help="Path to checkpoint (.pt) file")
+    p.add_argument("--prompt", default="\n", help="Initial prompt text")
+    p.add_argument("--tokens", type=int, default=200, help="Number of new tokens/characters to generate")
+    p.add_argument("--temperature", type=float, default=0.8, help="Softmax sampling temperature")
+    p.add_argument("--top_k", type=int, default=40, help="Top-k filtering limit")
+    p.add_argument("--seed", type=int, default=0, help="Random seed for generation")
+    p.add_argument("--device", default=None, help="Device ('cpu', 'cuda')")
     a = p.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    torch.manual_seed(a.seed)
-    ck = torch.load(a.ckpt, map_location=device)
-    model = GPT(GPTConfig(**ck["model_config"])).to(device)
-    model.load_state_dict(ck["model"])
-    model.eval()
-    stoi = {c: i for i, c in enumerate(ck["chars"])}
-    itos = {i: c for c, i in stoi.items()}
-    idx = torch.tensor([[stoi[c] for c in a.prompt if c in stoi]], dtype=torch.long, device=device)
-    out = model.generate(idx, a.tokens, temperature=a.temperature, top_k=a.top_k)
-    print("".join(itos[int(i)] for i in out[0]))
+    if not os.path.isfile(a.ckpt):
+        raise FileNotFoundError(f"Checkpoint not found at '{a.ckpt}'. Please train a model first.")
+
+    service = ModelService(default_device=a.device)
+    service.registry.register_manual("cli_model", a.ckpt)
+
+    res = service.generate_text(
+        model_id="cli_model",
+        prompt=a.prompt,
+        max_new_tokens=a.tokens,
+        temperature=a.temperature,
+        top_k=a.top_k,
+        seed=a.seed,
+    )
+    print(res["full_text"])
+
+
+if __name__ == "__main__":
+    main()

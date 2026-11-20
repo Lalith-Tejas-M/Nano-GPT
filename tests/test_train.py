@@ -1,0 +1,127 @@
+"""Unit and integration tests for train.py."""
+import json
+import math
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import pytest
+import torch
+
+from model import GPT, GPTConfig
+from train import get_lr, train
+
+
+def test_learning_rate_schedule():
+    """Verify linear warmup and cosine decay to min_lr."""
+    lr, min_lr, warmup, max_iters = 1e-3, 1e-4, 100, 1000
+
+    # Start of warmup
+    assert get_lr(0, max_iters, lr, min_lr, warmup) == pytest.approx(1e-5)
+    # End of warmup
+    assert get_lr(99, max_iters, lr, min_lr, warmup) == pytest.approx(lr)
+    # Midpoint of cosine decay (halfway between 100 and 1000 is 550)
+    # ratio = (550 - 100) / 900 = 0.5; cos(pi * 0.5) = 0.0 -> min_lr + 0.5 * (lr - min_lr)
+    expected_mid = min_lr + 0.5 * (lr - min_lr)
+    assert get_lr(550, max_iters, lr, min_lr, warmup) == pytest.approx(expected_mid, rel=1e-3)
+    # At or past max_iters
+    assert get_lr(1000, max_iters, lr, min_lr, warmup) == min_lr
+    assert get_lr(1050, max_iters, lr, min_lr, warmup) == min_lr
+
+
+def test_short_cpu_train_and_checkpoint_schema(tmp_path):
+    """Run a tiny CPU training session and verify saved results and checkpoint format."""
+    corpus = "The quick brown fox jumps over the lazy dog! 1234567890\n" * 20
+    out_dir = str(tmp_path / "test_run")
+
+    result = train(
+        data_text=corpus,
+        out_dir=out_dir,
+        block_size=16,
+        batch_size=4,
+        n_layer=2,
+        n_head=2,
+        n_embd=32,
+        max_iters=10,
+        eval_interval=5,
+        eval_iters=2,
+        warmup=2,
+        device="cpu",
+        save_ckpt=True,
+    )
+
+    assert result["schema_version"] == "1.0"
+    assert math.isfinite(result["final_train"])
+    assert math.isfinite(result["final_val"])
+    assert math.isfinite(result["best_val"])
+    assert len(result["history"]) == 3  # iter 0, 5, 10
+
+    # Verify result.json on disk
+    json_path = os.path.join(out_dir, "result.json")
+    assert os.path.isfile(json_path)
+    with open(json_path, encoding="utf-8") as f:
+        disk_result = json.load(f)
+    assert disk_result["schema_version"] == "1.0"
+    assert disk_result["fingerprint"] == result["fingerprint"]
+
+    # Verify ckpt.pt on disk
+    ckpt_path = os.path.join(out_dir, "ckpt.pt")
+    assert os.path.isfile(ckpt_path)
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    assert ckpt["format_version"] == "1.0"
+    assert "model" in ckpt
+    assert "model_config" in ckpt
+    assert "chars" in ckpt
+
+    # Verify model reloads and runs forward pass
+    loaded_model = GPT(GPTConfig(**ckpt["model_config"]))
+    loaded_model.load_state_dict(ckpt["model"])
+    loaded_model.eval()
+    test_x = torch.zeros((1, 8), dtype=torch.long)
+    logits, _ = loaded_model(test_x)
+    assert logits.shape == (1, 8, ckpt["model_config"]["vocab_size"])
+
+
+def test_step_level_resumption(tmp_path):
+    """Verify that training can pause at step 4 and resume from step 4 to step 8."""
+    corpus = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 \n" * 15
+    out_dir = str(tmp_path / "resume_run")
+
+    # Run part 1: 4 iterations (eval at 0 and 4, saving resume_state.pt)
+    res1 = train(
+        data_text=corpus,
+        out_dir=out_dir,
+        block_size=16,
+        batch_size=4,
+        n_layer=2,
+        n_head=2,
+        n_embd=32,
+        max_iters=4,
+        eval_interval=2,
+        eval_iters=2,
+        device="cpu",
+        save_resume=True,
+    )
+
+    resume_ckpt = os.path.join(out_dir, "resume_state.pt")
+    assert os.path.isfile(resume_ckpt)
+
+    # Run part 2: resume from resume_state.pt up to 8 iterations
+    res2 = train(
+        data_text=corpus,
+        out_dir=out_dir,
+        block_size=16,
+        batch_size=4,
+        n_layer=2,
+        n_head=2,
+        n_embd=32,
+        max_iters=8,
+        eval_interval=2,
+        eval_iters=2,
+        device="cpu",
+        resume_from=resume_ckpt,
+        save_resume=True,
+    )
+
+    assert res2["history"][-1]["iter"] == 8
+    assert len(res2["history"]) > len(res1["history"])
