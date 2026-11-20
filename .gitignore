@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Pytest / Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# PyTorch / Models / Checkpoints
+*.pt
+*.pth
+*.bin
+out/
+results/
+results_quick/
+figures/
+figures_quick/
+
+# Data
+data/
+*.txt
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
