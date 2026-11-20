@@ -27,7 +27,9 @@ figures_quick/
 
 # Data
 data/
-*.txt
+input.txt
+*.csv
+!requirements.txt
 
 # IDE / OS
 .vscode/
