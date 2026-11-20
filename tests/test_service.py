@@ -74,9 +74,20 @@ def test_service_generation_and_validation(mock_checkpoint):
     assert len(res["completion"]) == 10
     assert res["full_text"] == "hello " + res["completion"]
 
-    # Empty prompt defaults to newline
+    # Empty or None prompt defaults to newline
     res_empty = service.generate_text("s_pre_seed0", prompt="", max_new_tokens=5)
     assert res_empty["prompt"] == "\n"
+
+    res_none = service.generate_text("s_pre_seed0", prompt=None, max_new_tokens=5)
+    assert res_none["prompt"] == "\n"
+
+    # Type coercion from strings (e.g. from web query parameters)
+    res_coerced = service.generate_text("s_pre_seed0", prompt="hi", max_new_tokens="5", temperature="0.7", top_k="10")
+    assert res_coerced["tokens_generated"] == 5
+
+    # top_k <= 0 disables top_k filtering without crashing
+    res_no_topk = service.generate_text("s_pre_seed0", prompt="hi", max_new_tokens=5, top_k=0)
+    assert res_no_topk["tokens_generated"] == 5
 
     # Unsupported character in prompt raises ValueError
     with pytest.raises(ValueError, match="Unsupported character.*'@'"):

@@ -57,6 +57,16 @@ def compute_group_stats(vals: list[float], n_params: int, n_params_ne: int) -> d
     """Computes mean, sample std (ddof=1), and Student-t 95% CI half-width."""
     arr = np.array(vals, dtype=float)
     n = len(arr)
+    if n == 0:
+        return dict(
+            n=0,
+            raw_values=[],
+            params=n_params,
+            params_ne=n_params_ne,
+            mean=0.0,
+            std=0.0,
+            ci95=0.0,
+        )
     mean = float(arr.mean())
     std = float(arr.std(ddof=1)) if n > 1 else 0.0
     crit = t_crit(n - 1)
@@ -161,7 +171,7 @@ def aggregate_and_plot(results_dir: str = "results", out_dir: str = "figures", m
             label=f"{ln}-LN (mean \u00b1 sample std, ddof=1)",
         )
 
-        if ln == "pre" and len(x) >= 2 and all(y > 0):
+        if ln == "pre" and len(x) >= 2 and all(y > 0) and x.min() != x.max():
             slope, intercept = np.polyfit(np.log10(x), np.log10(y), 1)
             xs = np.geomspace(x.min(), x.max(), 50)
             ys = 10 ** (intercept + slope * np.log10(xs))

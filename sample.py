@@ -15,7 +15,7 @@ def main():
     p.add_argument("--prompt", default="\n", help="Initial prompt text")
     p.add_argument("--tokens", type=int, default=200, help="Number of new tokens/characters to generate")
     p.add_argument("--temperature", type=float, default=0.8, help="Softmax sampling temperature")
-    p.add_argument("--top_k", type=int, default=40, help="Top-k filtering limit")
+    p.add_argument("--top_k", type=int, default=40, help="Top-k filtering limit (set <= 0 to disable)")
     p.add_argument("--seed", type=int, default=0, help="Random seed for generation")
     p.add_argument("--device", default=None, help="Device ('cpu', 'cuda')")
     a = p.parse_args()
@@ -29,12 +29,13 @@ def main():
         service = ModelService(default_device=a.device)
         service.registry.register_manual("cli_model", a.ckpt)
 
+        top_k_val = None if a.top_k <= 0 else a.top_k
         res = service.generate_text(
             model_id="cli_model",
             prompt=a.prompt,
             max_new_tokens=a.tokens,
             temperature=a.temperature,
-            top_k=a.top_k,
+            top_k=top_k_val,
             seed=a.seed,
         )
         print(res["full_text"])

@@ -128,7 +128,15 @@ def run_sweep(
                         print(f"Quarantining corrupted result for {name} ({reason}) -> {corrupt_dest}")
                         shutil.move(result_path, corrupt_dest)
 
+                # Check for intermediate resumable checkpoint
+                resume_file = os.path.join(out_dir, "resume_state.pt")
+                auto_resume = None
+                if not force and os.path.isfile(resume_file):
+                    print(f"Detected partial run for {name}; resuming from: {resume_file}")
+                    auto_resume = resume_file
+
                 print(f"\n=== Running {name} (size={size}, ln={ln}, seed={seed}) ===", flush=True)
+                resume_target = train_overrides.pop("resume_from", auto_resume)
                 run_res = train(
                     n_layer=n_layer,
                     n_head=n_head,
@@ -140,6 +148,7 @@ def run_sweep(
                     save_ckpt=save_ckpt,
                     device=device,
                     data_text=data_text,
+                    resume_from=resume_target,
                     **{**extra, **train_overrides},
                 )
                 completed_runs.append(run_res)

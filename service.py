@@ -190,13 +190,29 @@ class ModelService:
         if target_model is None:
             raise ValueError("Either model_id or model_path must be specified.")
 
-        # Validate generation parameters
+        # Validate and coerce generation parameters
+        try:
+            max_new_tokens = int(max_new_tokens)
+        except (ValueError, TypeError):
+            raise ValueError(f"max_new_tokens must be an integer, got {max_new_tokens!r}")
+
+        try:
+            temperature = float(temperature)
+        except (ValueError, TypeError):
+            raise ValueError(f"temperature must be a float, got {temperature!r}")
+
+        if top_k is not None:
+            try:
+                top_k = int(top_k)
+            except (ValueError, TypeError):
+                raise ValueError(f"top_k must be an integer or None, got {top_k!r}")
+            if top_k <= 0:
+                top_k = None
+
         if not (1 <= max_new_tokens <= 2000):
             raise ValueError(f"max_new_tokens must be in range [1, 2000], got {max_new_tokens}")
         if not (0.01 <= temperature <= 5.0):
             raise ValueError(f"temperature must be in range [0.01, 5.0], got {temperature}")
-        if top_k is not None and top_k <= 0:
-            raise ValueError(f"top_k must be a positive integer or None, got {top_k}")
 
         loaded = self.load_model(target_model, device=device)
         model = loaded["model"]
@@ -206,7 +222,7 @@ class ModelService:
         cfg = loaded["config"]
 
         # Default prompt handling
-        if prompt == "":
+        if prompt is None or prompt == "":
             prompt = "\n"
 
         # Validate character vocabulary

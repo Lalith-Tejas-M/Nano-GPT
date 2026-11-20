@@ -217,7 +217,7 @@ Saved at `<results_dir>/<size>_<ln>_seed<seed>/result.json`.
   "dataset": {
     "name": "tinyshakespeare",
     "vocab_size": 65,
-    "sha256": "4b6807d90d796e9...e597c5"
+    "sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed"
   },
   "environment": {
     "python_version": "3.10.11",

@@ -33,6 +33,16 @@ def test_hand_computed_statistics():
     assert stats["ci95"] == pytest.approx(expected_ci, rel=1e-4)
 
 
+def test_empty_statistics():
+    """Verify that empty value list returns safe zeroed metrics without warnings or exceptions."""
+    stats = compute_group_stats([], n_params=500, n_params_ne=400)
+    assert stats["n"] == 0
+    assert stats["mean"] == 0.0
+    assert stats["std"] == 0.0
+    assert stats["ci95"] == 0.0
+    assert stats["raw_values"] == []
+
+
 def test_aggregate_and_plot_with_synthetic_runs(tmp_path):
     """Test full pipeline loading synthetic result files and creating figures/summaries."""
     results_dir = str(tmp_path / "results")

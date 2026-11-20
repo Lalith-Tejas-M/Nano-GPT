@@ -17,7 +17,7 @@
     - Parameter Count: **818,048** (Pre-LN) / **817,792** (Post-LN).
   - **M (Medium):** `n_layer=6`, `n_head=6`, `n_embd=192`, `block_size=128`.
     - Parameter Count: **2,706,624** (Pre-LN) / **2,706,240** (Post-LN).
-  - **L (Large):** `n_layer=8`, `n_head=8`, `n_embd=256`, `block_size=128`.
+  - **L (Large):** `n_layer=6`, `n_head=6`, `n_embd=384`, `block_size=128`.
     - Parameter Count: **10,721,664** (Pre-LN) / **10,720,896** (Post-LN).
   - *Note on Parameter Calculation:* Analytical parameter formula for tied weights:
     $$\text{Params}_{\text{Pre-LN}} = (V \cdot C + B \cdot C) + L \cdot \left[ (4 C^2 + 4 C) + (8 C^2 + 5 C) + 4 C \right] + 2 C$$

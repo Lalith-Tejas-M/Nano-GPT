@@ -83,11 +83,29 @@ def test_short_cpu_train_and_checkpoint_schema(tmp_path):
 
 
 def test_step_level_resumption(tmp_path):
-    """Verify that training can pause at step 4 and resume from step 4 to step 8."""
+    """Verify that training can pause at step 4 and resume to step 8 bit-for-bit."""
     corpus = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 \n" * 15
     out_dir = str(tmp_path / "resume_run")
+    baseline_dir = str(tmp_path / "baseline_run")
 
-    # Run part 1: 4 iterations (eval at 0 and 4, saving resume_state.pt)
+    # Run baseline: uninterrupted 0 -> 4
+    res_base = train(
+        data_text=corpus,
+        out_dir=baseline_dir,
+        block_size=16,
+        batch_size=4,
+        n_layer=2,
+        n_head=2,
+        n_embd=32,
+        max_iters=4,
+        eval_interval=2,
+        eval_iters=2,
+        device="cpu",
+        seed=42,
+        save_resume=True,
+    )
+
+    # Run part 1: 0 -> 4 with resume_state.pt saved at iter 2
     res1 = train(
         data_text=corpus,
         out_dir=out_dir,
@@ -100,13 +118,18 @@ def test_step_level_resumption(tmp_path):
         eval_interval=2,
         eval_iters=2,
         device="cpu",
+        seed=42,
         save_resume=True,
     )
 
     resume_ckpt = os.path.join(out_dir, "resume_state.pt")
     assert os.path.isfile(resume_ckpt)
 
-    # Run part 2: resume from resume_state.pt up to 8 iterations
+    saved_state = torch.load(resume_ckpt, map_location="cpu")
+    assert "rng_state_generator" in saved_state
+    assert saved_state["iteration"] == 2
+
+    # Run part 2: resume from resume_state.pt (iter 2) to iter 4
     res2 = train(
         data_text=corpus,
         out_dir=out_dir,
@@ -115,16 +138,19 @@ def test_step_level_resumption(tmp_path):
         n_layer=2,
         n_head=2,
         n_embd=32,
-        max_iters=8,
+        max_iters=4,
         eval_interval=2,
         eval_iters=2,
         device="cpu",
+        seed=42,
         resume_from=resume_ckpt,
         save_resume=True,
     )
 
-    assert res2["history"][-1]["iter"] == 8
-    assert len(res2["history"]) > len(res1["history"])
+    # Losses must be bit-exact with uninterrupted run!
+    base_vals = [h["val"] for h in res_base["history"]]
+    resumed_vals = [h["val"] for h in res2["history"]]
+    assert base_vals == resumed_vals, f"Resumption loss mismatch: {base_vals} vs {resumed_vals}"
 
 
 if __name__ == "__main__":

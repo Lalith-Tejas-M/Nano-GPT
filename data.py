@@ -16,7 +16,7 @@ import torch
 TINY_SHAKESPEARE_URL = (
     "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
 )
-TINY_SHAKESPEARE_SHA256 = "4b6807d90d796e9526e033d5ba4b54e38c92a543f076b1580cae43b185e597c5"
+TINY_SHAKESPEARE_SHA256 = "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed"
 
 
 def compute_sha256(text: str) -> str:
@@ -43,17 +43,18 @@ def load_text(
 ) -> str:
     """Load the text corpus, downloading atomically to a temporary file on first use."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    target_sha256 = expected_sha256 or TINY_SHAKESPEARE_SHA256
     if not os.path.exists(path):
         tmp_path = path + ".tmp"
         try:
             urllib.request.urlretrieve(url, tmp_path)
             with open(tmp_path, encoding="utf-8") as f:
                 content = f.read()
-            if verify_sha256 and expected_sha256:
+            if verify_sha256:
                 actual_hash = compute_sha256(content)
-                if actual_hash != expected_sha256:
+                if actual_hash != target_sha256:
                     raise ValueError(
-                        f"Dataset SHA-256 mismatch!\nExpected: {expected_sha256}\nActual:   {actual_hash}"
+                        f"Dataset SHA-256 mismatch!\nExpected: {target_sha256}\nActual:   {actual_hash}"
                     )
             os.replace(tmp_path, path)
             return content
@@ -71,11 +72,11 @@ def load_text(
     with open(path, encoding="utf-8") as f:
         content = f.read()
 
-    if verify_sha256 and expected_sha256:
+    if verify_sha256:
         actual_hash = compute_sha256(content)
-        if actual_hash != expected_sha256:
+        if actual_hash != target_sha256:
             raise ValueError(
-                f"Dataset file at {path} has corrupted SHA-256!\nExpected: {expected_sha256}\nActual:   {actual_hash}"
+                f"Dataset file at {path} has corrupted SHA-256!\nExpected: {target_sha256}\nActual:   {actual_hash}"
             )
     return content
 

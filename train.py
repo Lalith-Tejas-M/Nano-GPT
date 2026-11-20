@@ -154,7 +154,8 @@ def train(**overrides) -> dict:
         use_scaler = False
 
     amp_ctx = torch.autocast(device_type="cuda", dtype=amp_dtype) if use_cuda else nullcontext()
-    scaler = torch.amp.GradScaler("cuda", enabled=use_scaler)
+    scaler_device = "cuda" if use_cuda else "cpu"
+    scaler = torch.amp.GradScaler(scaler_device, enabled=use_scaler)
 
     # Optimizer: weight decay on 2D parameter tensors, no decay on 1D biases/LayerNorms
     decay = [p for p in model.parameters() if p.dim() >= 2]
@@ -175,22 +176,25 @@ def train(**overrides) -> dict:
     g_train = torch.Generator().manual_seed(cfg["seed"])
 
     # Handle step-level resumption if requested
-    if cfg["resume_from"] is not None:
-        if not os.path.isfile(cfg["resume_from"]):
-            raise FileNotFoundError(f"Resume checkpoint not found: {cfg['resume_from']}")
-        checkpoint = torch.load(cfg["resume_from"], map_location=device)
+    if cfg["resume_from"] is not None and str(cfg["resume_from"]).strip():
+        resume_file = str(cfg["resume_from"]).strip()
+        if not os.path.isfile(resume_file):
+            raise FileNotFoundError(f"Resume checkpoint not found: {resume_file}")
+        checkpoint = torch.load(resume_file, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        if use_scaler and "scaler_state_dict" in checkpoint:
+        if use_scaler and "scaler_state_dict" in checkpoint and checkpoint["scaler_state_dict"] is not None:
             scaler.load_state_dict(checkpoint["scaler_state_dict"])
-        start_iter = checkpoint["iteration"] + 1
+        start_iter = checkpoint["iteration"]
         history = checkpoint.get("history", [])
         best_val = checkpoint.get("best_val", float("inf"))
-        if "rng_state_cpu" in checkpoint:
+        if "rng_state_generator" in checkpoint and checkpoint["rng_state_generator"] is not None:
+            g_train.set_state(checkpoint["rng_state_generator"].cpu())
+        if "rng_state_cpu" in checkpoint and checkpoint["rng_state_cpu"] is not None:
             torch.set_rng_state(checkpoint["rng_state_cpu"].cpu())
         if use_cuda and "rng_state_cuda" in checkpoint and checkpoint["rng_state_cuda"] is not None:
             torch.cuda.set_rng_state_all([s.cpu() for s in checkpoint["rng_state_cuda"]])
-        if "python_rng_state" in checkpoint:
+        if "python_rng_state" in checkpoint and checkpoint["python_rng_state"] is not None:
             random.setstate(checkpoint["python_rng_state"])
         print(f"Resumed training from iteration {start_iter} (best_val: {best_val:.4f})")
 
@@ -201,7 +205,12 @@ def train(**overrides) -> dict:
             group["lr"] = lr
 
         # Periodic evaluation
-        if it % cfg["eval_interval"] == 0 or it == cfg["max_iters"]:
+        already_evaluated = (
+            it == start_iter
+            and len(history) > 0
+            and history[-1]["iter"] == it
+        )
+        if not already_evaluated and (it % cfg["eval_interval"] == 0 or it == cfg["max_iters"]):
             l = estimate_loss(model, ds, cfg, device, amp_ctx)
             if l["val"] < best_val:
                 best_val = l["val"]
@@ -227,6 +236,7 @@ def train(**overrides) -> dict:
                     "model_config": mc.to_dict(),
                     "chars": ds.chars,
                     "cfg": cfg,
+                    "rng_state_generator": g_train.get_state(),
                     "rng_state_cpu": torch.get_rng_state(),
                     "rng_state_cuda": torch.cuda.get_rng_state_all() if use_cuda else None,
                     "python_rng_state": random.getstate(),

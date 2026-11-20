@@ -83,6 +83,29 @@ def test_sha256_metadata():
     assert meta["sha256"] == compute_sha256(text)
 
 
+def test_load_text_verification_success_and_failure(tmp_path):
+    from data import load_text
+
+    text_file = str(tmp_path / "corpus.txt")
+    sample_content = "To be, or not to be, that is the question."
+    with open(text_file, "w", encoding="utf-8") as f:
+        f.write(sample_content)
+
+    correct_sha = compute_sha256(sample_content)
+
+    # 1. Successful verification
+    loaded = load_text(text_file, verify_sha256=True, expected_sha256=correct_sha)
+    assert loaded == sample_content
+
+    # 2. Corrupted hash raises ValueError
+    with pytest.raises(ValueError, match="corrupted SHA-256"):
+        load_text(text_file, verify_sha256=True, expected_sha256="0000000000000000000000000000000000000000000000000000000000000000")
+
+    # 3. verify_sha256=False succeeds regardless of expected_sha256
+    unverified = load_text(text_file, verify_sha256=False, expected_sha256="wrong_hash")
+    assert unverified == sample_content
+
+
 if __name__ == "__main__":
     os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     sys.exit(pytest.main([__file__, "-v"]))
