@@ -7,6 +7,7 @@ import glob
 import json
 import os
 import random
+import time
 
 import torch
 
@@ -64,12 +65,22 @@ class ModelRegistry:
 
     def get(self, model_id: str) -> dict:
         """Retrieves checkpoint metadata for model_id. Raises KeyError if unknown."""
-        if model_id not in self._registry:
-            self.refresh()
-        if model_id not in self._registry:
-            available = list(self._registry.keys())
-            raise KeyError(f"Model ID '{model_id}' not found in registry. Available models: {available}")
-        return self._registry[model_id]
+        if model_id in self._registry:
+            return self._registry[model_id]
+        if os.path.isfile(model_id):
+            self.register_manual(model_id, model_id)
+            return self._registry[model_id]
+
+        self.refresh()
+        if model_id in self._registry:
+            return self._registry[model_id]
+
+        for entry in self._registry.values():
+            if os.path.abspath(entry["checkpoint_path"]) == os.path.abspath(model_id):
+                return entry
+
+        available = list(self._registry.keys())
+        raise KeyError(f"Model ID '{model_id}' not found in registry. Available models: {available}")
 
     def list_models(self) -> list[dict]:
         """Returns metadata list of all currently registered models."""
@@ -80,9 +91,19 @@ class ModelRegistry:
 class ModelService:
     """Manages model loading, in-memory caching, character validation, and text generation."""
 
-    def __init__(self, search_dirs: list[str] | None = None, default_device: str | None = None):
-        self.registry = ModelRegistry(search_dirs)
-        self.default_device = default_device or ("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(
+        self,
+        search_dirs: list[str] | None = None,
+        default_device: str | None = None,
+        device: str | None = None,
+        registry: ModelRegistry | None = None,
+    ):
+        if registry is not None:
+            self.registry = registry
+        else:
+            self.registry = ModelRegistry(search_dirs)
+        target_dev = device or default_device
+        self.default_device = target_dev or ("cuda" if torch.cuda.is_available() else "cpu")
         self._cache: dict[str, dict] = {}
 
     def list_available_models(self) -> list[dict]:
@@ -155,15 +176,20 @@ class ModelService:
 
     def generate_text(
         self,
-        model_id: str,
-        prompt: str,
+        model_id: str | None = None,
+        prompt: str = "",
         max_new_tokens: int = 200,
         temperature: float = 0.8,
         top_k: int | None = 40,
         seed: int | None = None,
         device: str | None = None,
+        model_path: str | None = None,
     ) -> dict:
         """Autoregressively generates text from a prompt with validation."""
+        target_model = model_id or model_path
+        if target_model is None:
+            raise ValueError("Either model_id or model_path must be specified.")
+
         # Validate generation parameters
         if not (1 <= max_new_tokens <= 2000):
             raise ValueError(f"max_new_tokens must be in range [1, 2000], got {max_new_tokens}")
@@ -172,11 +198,12 @@ class ModelService:
         if top_k is not None and top_k <= 0:
             raise ValueError(f"top_k must be a positive integer or None, got {top_k}")
 
-        loaded = self.load_model(model_id, device=device)
+        loaded = self.load_model(target_model, device=device)
         model = loaded["model"]
         stoi = loaded["stoi"]
         itos = loaded["itos"]
         model_device = loaded["device"]
+        cfg = loaded["config"]
 
         # Default prompt handling
         if prompt == "":
@@ -200,22 +227,38 @@ class ModelService:
         # Tokenize prompt
         idx = torch.tensor([[stoi[c] for c in prompt]], dtype=torch.long, device=model_device)
 
-        # Generate tokens
+        # Generate tokens with timing
+        t0 = time.perf_counter()
         out = model.generate(idx, max_new_tokens, temperature=temperature, top_k=top_k)
+        duration_s = time.perf_counter() - t0
+        generation_time_ms = round(duration_s * 1000, 2)
+
         full_ids = out[0].tolist()
         completion_ids = full_ids[len(idx[0]) :]
 
         completion = "".join(itos[i] for i in completion_ids)
         full_text = "".join(itos[i] for i in full_ids)
+        tokens_per_sec = round(len(completion_ids) / duration_s, 1) if duration_s > 0 else 0.0
 
         return {
-            "model_id": model_id,
+            "model_id": target_model,
             "prompt": prompt,
             "completion": completion,
+            "generated_text": full_text,
             "full_text": full_text,
             "tokens_generated": len(completion_ids),
+            "generation_time_ms": generation_time_ms,
+            "tokens_per_second": tokens_per_sec,
             "temperature": temperature,
             "top_k": top_k,
             "seed": seed,
             "device": str(model_device),
+            "config": {
+                "block_size": cfg.block_size,
+                "vocab_size": cfg.vocab_size,
+                "n_layer": cfg.n_layer,
+                "n_head": cfg.n_head,
+                "n_embd": cfg.n_embd,
+                "ln_placement": cfg.ln_placement,
+            },
         }
