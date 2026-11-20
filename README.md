@@ -203,7 +203,8 @@ Prompts containing characters outside the 65-character vocabulary raise a `Value
 
 The test suite runs completely offline with zero network or GPU dependencies:
 ```bash
-$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"; python -m pytest -v
+python run_tests.py
+# or: $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"; python -m pytest -v
 ```
 
 **Results: 27 passed, 0 failed in 7.44s.**
