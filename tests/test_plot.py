@@ -79,3 +79,8 @@ def test_aggregate_and_plot_with_synthetic_runs(tmp_path):
     assert "pre_s" in stats
     assert stats["pre_xs"]["n"] == 2
     assert stats["pre_xs"]["mean"] == pytest.approx(2.51)
+
+
+if __name__ == "__main__":
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))

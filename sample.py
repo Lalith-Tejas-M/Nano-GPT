@@ -21,20 +21,27 @@ def main():
     a = p.parse_args()
 
     if not os.path.isfile(a.ckpt):
-        raise FileNotFoundError(f"Checkpoint not found at '{a.ckpt}'. Please train a model first.")
+        import sys
+        sys.stderr.write(f"Error: Checkpoint not found at '{a.ckpt}'. Please train a model first.\n")
+        sys.exit(1)
 
-    service = ModelService(default_device=a.device)
-    service.registry.register_manual("cli_model", a.ckpt)
+    try:
+        service = ModelService(default_device=a.device)
+        service.registry.register_manual("cli_model", a.ckpt)
 
-    res = service.generate_text(
-        model_id="cli_model",
-        prompt=a.prompt,
-        max_new_tokens=a.tokens,
-        temperature=a.temperature,
-        top_k=a.top_k,
-        seed=a.seed,
-    )
-    print(res["full_text"])
+        res = service.generate_text(
+            model_id="cli_model",
+            prompt=a.prompt,
+            max_new_tokens=a.tokens,
+            temperature=a.temperature,
+            top_k=a.top_k,
+            seed=a.seed,
+        )
+        print(res["full_text"])
+    except Exception as e:
+        import sys
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -111,3 +111,8 @@ def test_sweep_execution_and_skip_logic(tmp_path):
     files = os.listdir(parent)
     assert any("corrupt" in f for f in files)
     assert os.path.isfile(run_file)  # Fresh valid file replaced it
+
+
+if __name__ == "__main__":
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))

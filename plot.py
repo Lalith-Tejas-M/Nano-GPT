@@ -258,6 +258,11 @@ if __name__ == "__main__":
     )
     args = p.parse_args()
 
-    res = aggregate_and_plot(results_dir=args.results, out_dir=args.out, metric=args.metric)
-    with open(res["summary_md"], encoding="utf-8") as f:
-        print(f.read())
+    try:
+        res = aggregate_and_plot(results_dir=args.results, out_dir=args.out, metric=args.metric)
+        with open(res["summary_md"], encoding="utf-8") as f:
+            print(f.read())
+    except Exception as e:
+        import sys
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)

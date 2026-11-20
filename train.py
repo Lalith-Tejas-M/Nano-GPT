@@ -319,4 +319,9 @@ if __name__ == "__main__":
         else:
             p.add_argument(f"--{k}", type=type(v), default=v)
     args = vars(p.parse_args())
-    train(**args)
+    try:
+        train(**args)
+    except Exception as e:
+        import sys
+        sys.stderr.write(f"Error during training: {e}\n")
+        sys.exit(1)

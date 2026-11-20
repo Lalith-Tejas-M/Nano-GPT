@@ -159,13 +159,18 @@ if __name__ == "__main__":
     p.add_argument("--device", default=None, help="Device override ('cpu', 'cuda')")
     a = p.parse_args()
 
-    run_sweep(
-        out=a.out,
-        sizes=a.sizes,
-        seeds=a.seeds,
-        max_iters=a.max_iters,
-        ablate=a.ablate,
-        quick=a.quick,
-        force=a.force,
-        device=a.device,
-    )
+    try:
+        run_sweep(
+            out=a.out,
+            sizes=a.sizes,
+            seeds=a.seeds,
+            max_iters=a.max_iters,
+            ablate=a.ablate,
+            quick=a.quick,
+            force=a.force,
+            device=a.device,
+        )
+    except Exception as e:
+        import sys
+        sys.stderr.write(f"Error during sweep: {e}\n")
+        sys.exit(1)

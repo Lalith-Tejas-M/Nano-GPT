@@ -89,3 +89,8 @@ def test_service_generation_and_validation(mock_checkpoint):
     # Invalid max_new_tokens
     with pytest.raises(ValueError, match="max_new_tokens must be in range"):
         service.generate_text("s_pre_seed0", prompt="hi", max_new_tokens=0)
+
+
+if __name__ == "__main__":
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))

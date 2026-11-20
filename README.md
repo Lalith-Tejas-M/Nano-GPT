@@ -207,15 +207,16 @@ python run_tests.py
 # or: $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"; python -m pytest -v
 ```
 
-**Results: 27 passed, 0 failed in 7.44s.**
+**Results: 30 passed, 0 failed in 17.8s.**
 
 ```text
-tests/test_data.py ........     [ 25%]  (encoding roundtrip, OOV rejection, slice bounds, generator seeding)
-tests/test_model.py .........   [ 59%]  (causality, initial loss, weight tying regression, parameter counts)
-tests/test_plot.py ...          [ 70%]  (Student-t critical values, ddof=1 sample std, plot generation)
-tests/test_service.py ...       [ 81%]  (checkpoint discovery, model caching, prompt validation)
-tests/test_sweep.py ..          [ 88%]  (run validation, corrupt quarantine, skip logic)
-tests/test_train.py ...         [100%]  (cosine schedule math, CPU convergence, step-level resumption)
+tests/test_data.py .......       [ 23%]  (encoding roundtrip, OOV rejection, slice bounds, generator seeding)
+tests/test_integration.py ...    [ 33%]  (end-to-end training/inference, sweep/plot aggregation, CLI error handling)
+tests/test_model.py .........    [ 63%]  (causality, initial loss, weight tying regression, parameter counts)
+tests/test_plot.py ...           [ 73%]  (Student-t critical values, ddof=1 sample std, plot generation)
+tests/test_service.py ...        [ 83%]  (checkpoint discovery, model caching, prompt validation)
+tests/test_sweep.py ..           [ 90%]  (run validation, corrupt quarantine, skip logic)
+tests/test_train.py ...          [100%]  (cosine schedule math, CPU convergence, step-level resumption)
 ```
 
 ---

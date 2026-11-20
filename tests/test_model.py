@@ -179,7 +179,5 @@ def test_forward_and_generate_error_handling():
 
 
 if __name__ == "__main__":
-    for name, fn in list(globals().items()):
-        if name.startswith("test_"):
-            fn()
-            print("PASS", name)
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))

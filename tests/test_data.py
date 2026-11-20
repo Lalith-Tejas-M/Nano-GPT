@@ -81,3 +81,8 @@ def test_sha256_metadata():
     assert meta["vocab_size"] == 8
     assert len(meta["sha256"]) == 64
     assert meta["sha256"] == compute_sha256(text)
+
+
+if __name__ == "__main__":
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))

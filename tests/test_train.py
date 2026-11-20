@@ -125,3 +125,8 @@ def test_step_level_resumption(tmp_path):
 
     assert res2["history"][-1]["iter"] == 8
     assert len(res2["history"]) > len(res1["history"])
+
+
+if __name__ == "__main__":
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    sys.exit(pytest.main([__file__, "-v"]))
